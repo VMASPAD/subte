@@ -1,38 +1,37 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-use reqwest::blocking::Client;
+use reqwest::Client;
 use scraper::{Html, Selector};
 
 #[tauri::command]
-fn get_htmlsubte(url: &str, element_id: &str) -> Result<String, String> {
+async fn get_htmlsubte(url: String, element_id: String) -> Result<String, String> {
     // Crear un cliente HTTP
     let client = Client::new();
-    
+
     // Hacer la solicitud HTTP
-    let response = match client.get(url).send() {
-        Ok(resp) => resp,
-        Err(e) => return Err(format!("Error al hacer la solicitud: {}", e)),
-    };
-    
+    let response = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("Error al hacer la solicitud: {}", e))?;
+
     // Verificar si la solicitud fue exitosa
     if !response.status().is_success() {
         return Err(format!("La solicitud falló con código: {}", response.status()));
     }
-    
+
     // Obtener el contenido HTML
-    let html_content = match response.text() {
-        Ok(content) => content,
-        Err(e) => return Err(format!("Error al leer el contenido: {}", e)),
-    };
-    
+    let html_content = response
+        .text()
+        .await
+        .map_err(|e| format!("Error al leer el contenido: {}", e))?;
+
     // Parsear el HTML
     let document = Html::parse_document(&html_content);
-    
+
     // Crear un selector para el ID específico
-    let selector = match Selector::parse(&format!("#{}", element_id)) {
-        Ok(s) => s,
-        Err(_) => return Err("Error al crear el selector".to_string()),
-    };
-    
+    let selector = Selector::parse(&format!("#{}", element_id))
+        .map_err(|_| "Error al crear el selector".to_string())?;
+
     // Buscar el elemento por ID
     match document.select(&selector).next() {
         Some(element) => Ok(element.html()),
